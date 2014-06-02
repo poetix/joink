@@ -1,5 +1,5 @@
-import com.codepoetics.juxta.Joins;
-import com.codepoetics.juxta.Tuple2;
+import com.codepoetics.joink.Joins;
+import com.codepoetics.joink.Tuple2;
 import org.junit.Test;
 
 import java.util.Arrays;

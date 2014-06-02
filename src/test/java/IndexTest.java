@@ -1,6 +1,6 @@
-import com.codepoetics.juxta.Index;
-import com.codepoetics.juxta.JoinKey;
-import com.codepoetics.juxta.Tuple2;
+import com.codepoetics.joink.Index;
+import com.codepoetics.joink.JoinKey;
+import com.codepoetics.joink.Tuple2;
 import org.junit.Test;
 
 import java.time.Instant;
