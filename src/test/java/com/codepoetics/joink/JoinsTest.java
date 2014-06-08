@@ -1,11 +1,12 @@
-import com.codepoetics.joink.Joins;
-import com.codepoetics.joink.Tuple2;
+package com.codepoetics.joink;
+
 import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -31,7 +32,7 @@ public class JoinsTest {
                 Tuple2.of(ofGrammatology, derrida),
                 Tuple2.of(spectresOfMarx, derrida),
                 Tuple2.of(totalityAndInfinity, levinas),
-                Tuple2.of(theCutOfTheReal, kolozova)
+                Tuple2.of(cutOfTheReal, kolozova)
         ));
     }
 
@@ -48,10 +49,92 @@ public class JoinsTest {
                 Tuple2.of(derrida, books(ofGrammatology, spectresOfMarx)),
                 Tuple2.of(deleuzeAndGuattari, books(antiOedipus, aThousandPlateaus)),
                 Tuple2.of(levinas, books(totalityAndInfinity)),
-                Tuple2.of(kolozova, books(theCutOfTheReal)),
+                Tuple2.of(kolozova, books(cutOfTheReal)),
                 Tuple2.of(notAppearing, books())
         ));
     }
+
+    @Test(expected=IllegalArgumentException.class) public void
+    strict_one_to_one_join_fails_if_duplicate_left_elements() {
+        List<Tuple2<Book, Author>> joined = Joins.join(Stream.of(beingAndEvent, logicsOfWorlds, ofGrammatology))
+                .on(Book::getAuthorId)
+                .to(Author::getId)
+                .strictOneToOne(Stream.of(derrida, badiou))
+                .collect(Collectors.toList());
+    }
+
+    @Test(expected=IllegalArgumentException.class) public void
+    strict_one_to_many_join_fails_if_duplicate_left_elements() {
+        List<Tuple2<Book, Set<Author>>> joined = Joins.join(Stream.of(beingAndEvent, logicsOfWorlds, ofGrammatology))
+                .on(Book::getAuthorId)
+                .to(Author::getId)
+                .strictOneToMany(Stream.of(derrida, badiou))
+                .collect(Collectors.toList());
+    }
+
+    @Test(expected=IllegalArgumentException.class) public void
+    strict_one_to_many_join_fails_if_unmatched_right_elements() {
+        List<Tuple2<Author, Set<Book>>> joined = Joins.join(Stream.of(derrida, kolozova, badiou))
+                .on(Author::getId)
+                .to(Book::getAuthorId)
+                .strictOneToMany(Stream.of(beingAndEvent, totalityAndInfinity, ofGrammatology))
+                .collect(Collectors.toList());
+    }
+
+    @Test() public void
+    joins_one_to_many_strictly() {
+        List<Tuple2<Author, Set<Book>>> joined = Joins.join(Stream.of(derrida, kolozova, badiou))
+                .on(Author::getId)
+                .to(Book::getAuthorId)
+                .strictOneToMany(Stream.of(beingAndEvent, logicsOfWorlds, ofGrammatology, cutOfTheReal))
+                .collect(Collectors.toList());
+
+        assertThat(joined, hasItems(
+                Tuple2.of(derrida, books(ofGrammatology)),
+                Tuple2.of(badiou, books(beingAndEvent, logicsOfWorlds)),
+                Tuple2.of(kolozova, books(cutOfTheReal))
+        ));
+
+    }
+
+    @Test(expected=IllegalArgumentException.class) public void
+    strict_one_to_one_join_fails_if_unmatched_left_elements() {
+        List<Tuple2<Book, Author>> joined = Joins.join(Stream.of(beingAndEvent, totalityAndInfinity, ofGrammatology))
+                .on(Book::getAuthorId)
+                .to(Author::getId)
+                .strictOneToOne(Stream.of(derrida, badiou))
+                .collect(Collectors.toList());
+    }
+
+    @Test(expected=IllegalArgumentException.class) public void
+    strict_one_to_one_join_fails_if_duplicate_right_elements() {
+        List<Tuple2<Author, Book>> joined = Joins.join(Stream.of(derrida, badiou))
+                .on(Author::getId)
+                .to(Book::getAuthorId)
+                .strictOneToOne(Stream.of(beingAndEvent, logicsOfWorlds, ofGrammatology))
+                .collect(Collectors.toList());
+    }
+
+    @Test(expected=IllegalArgumentException.class) public void
+    strict_one_to_one_join_fails_if_unmatched_right_elements() {
+        List<Tuple2<Author, Book>> joined = Joins.join(Stream.of(derrida, badiou))
+                .on(Author::getId)
+                .to(Book::getAuthorId)
+                .strictOneToOne(Stream.of(beingAndEvent, cutOfTheReal, ofGrammatology))
+                .collect(Collectors.toList());
+    }
+
+    @Test() public void
+    joins_one_to_one() {
+        List<Tuple2<Book, Author>> joined = Joins.join(Stream.of(logicsOfWorlds, ofGrammatology))
+                .on(Book::getAuthorId)
+                .to(Author::getId)
+                .strictOneToOne(Stream.of(derrida, badiou))
+                .collect(Collectors.toList());
+
+        assertThat(joined, hasItems(Tuple2.of(logicsOfWorlds, badiou), Tuple2.of(ofGrammatology, derrida)));
+    }
+
     private static class Book {
 
         private final String id;
@@ -111,7 +194,7 @@ public class JoinsTest {
     private static final Book antiOedipus = new Book("AO", "Anti-Oedipus", "DG");
     private static final Book spectresOfMarx = new Book("SM", "Spectres of Marx", "DER");
     private static final Book theoryOfTheSubject = new Book("TOS", "Theory of the Subject", "BAD");
-    private static final Book theCutOfTheReal = new Book("COR", "The Cut Of The Real", "KK");
+    private static final Book cutOfTheReal = new Book("COR", "Cut Of The Real", "KK");
     private static final Book forgetFoucault = new Book("FF", "Forget Foucault", "BAU");
 
     private static final Book[] books = {
@@ -123,7 +206,7 @@ public class JoinsTest {
         spectresOfMarx,
         theoryOfTheSubject,
         antiOedipus,
-        theCutOfTheReal,
+        cutOfTheReal,
         forgetFoucault };
 
     private static final Author badiou = new Author("BAD", "Alain Badiou");

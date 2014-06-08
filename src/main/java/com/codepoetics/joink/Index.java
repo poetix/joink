@@ -7,8 +7,8 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 public class Index<K extends Comparable<K>, L> {
-    static <K extends Comparable<K>, L> Index<K, L> on(Stream<? extends L> stream, Function<? super L, ? extends K> key) {
-        return new Index<K, L>(stream.collect(IndexCollector.on(key)));
+    static <K extends Comparable<K>, L> Index<K, L> on(Stream<? extends L> parallelStream, Function<? super L, ? extends K> key) {
+        return new Index<K, L>(parallelStream.collect(IndexCollector.on(key)));
     }
 
     private final SortedMap<K, Set<L>> indexed;
@@ -25,11 +25,15 @@ public class Index<K extends Comparable<K>, L> {
     }
 
     public Stream<L> values() {
-        return indexed.values().stream().flatMap(s -> s.stream());
+        return indexed.values().parallelStream().flatMap(s -> s.parallelStream());
     }
 
     public <R> Stream<Tuple2<L, Set<R>>> oneToMany(Index<K, R> other) {
         return matchAndMerge(other, oneToManyMerger());
+    }
+
+    public <R> Stream<Tuple2<L, Set<R>>> strictOneToMany(Index<K, R> other) {
+        return matchAndMerge(other, strictOneToManyMerger());
     }
     
     private <R, T> Stream<T> matchAndMerge(Index<K, R> other, BiFunction<Set<L>, Set<R>, Stream<T>> merger) {
@@ -39,16 +43,53 @@ public class Index<K extends Comparable<K>, L> {
     private <R> BiFunction<Set<L>, Set<R>, Stream<Tuple2<L, Set<R>>>> oneToManyMerger() {
         return (lefts, rights) ->
             lefts.parallelStream().map(left -> Tuple2.of(left, rights));
-    }     
+    }
+
+    private <R> BiFunction<Set<L>, Set<R>, Stream<Tuple2<L, Set<R>>>> strictOneToManyMerger() {
+        return (lefts, rights) -> {
+            if (lefts.size() == 0) throw new IllegalArgumentException("Unmatched right values found");
+            if (lefts.size() > 1) throw new IllegalArgumentException("Duplicate left values found");
+            return Stream.of(Tuple2.of(lefts.iterator().next(), rights));
+        };
+    }
 
     public <R> Stream<Tuple2<L, R>> manyToOne(Index<K, R> other) {
         return matchAndMerge(other, manyToOneMerger());
+    }
+
+    public <R> Stream<Tuple2<L, R>> strictManyToOne(Index<K, R> other) {
+        return matchAndMerge(other, strictManyToOneMerger());
     }
 
     private <R> BiFunction<Set<L>, Set<R>, Stream<Tuple2<L, R>>> manyToOneMerger() {
         return (lefts, rights) ->
             lefts.parallelStream().flatMap(l ->
                     rights.parallelStream().map(r -> Tuple2.of(l, r)));
+    }
+
+    private <R> BiFunction<Set<L>, Set<R>, Stream<Tuple2<L, R>>> strictManyToOneMerger() {
+        return (lefts, rights) -> {
+            if (rights.size() == 0) throw new IllegalArgumentException("Unmatched left values found");
+            if (rights.size() > 1) throw new IllegalArgumentException(("Duplicate right values found"));
+            R right = rights.iterator().next();
+            return lefts.parallelStream().map(left -> Tuple2.of(left, right));
+        };
+    }
+
+    public <R> Stream<Tuple2<L, R>> strictOneToOne(Index<K, R> other) {
+        return matchAndMerge(other, strictOneToOneMerger());
+    }
+
+    private <R> BiFunction<Set<L>, Set<R>, Stream<Tuple2<L, R>>> strictOneToOneMerger() {
+        return (lefts, rights) -> {
+            if (lefts.size() == 0) throw new IllegalArgumentException("Unmatched right values found");
+            if (lefts.size() > 1) throw new IllegalArgumentException(("Duplicate left values found"));
+
+            if (rights.size() == 0) throw new IllegalArgumentException("Unmatched left values found");
+            if (rights.size() > 1) throw new IllegalArgumentException(("Duplicate right values found"));
+
+            return Stream.of(Tuple2.of(lefts.iterator().next(), rights.iterator().next()));
+        };
     }
 
     public <R> Stream<Tuple2<L, Optional<R>>> leftOuterJoin(Index<K, R> other) {
@@ -62,7 +103,7 @@ public class Index<K extends Comparable<K>, L> {
             }
 
             return lefts.parallelStream().flatMap(l ->
-                            rights.stream().map(r ->
+                            rights.parallelStream().map(r ->
                                             Tuple2.of(l, Optional.<R>of(r))
                             )
             );
@@ -81,7 +122,7 @@ public class Index<K extends Comparable<K>, L> {
             }
 
             return rights.parallelStream().flatMap(r ->
-                            lefts.stream().map(l ->
+                            lefts.parallelStream().map(l ->
                                             Tuple2.of(Optional.of(l), r)
                             )
             );
@@ -95,7 +136,7 @@ public class Index<K extends Comparable<K>, L> {
     private  <R> BiFunction<Set<L>, Set<R>, Stream<Tuple2<L, R>>> innerJoinMerger() {
         return (lefts, rights) -> {
             return lefts.parallelStream().flatMap(l ->
-                            rights.stream().map(r ->
+                            rights.parallelStream().map(r ->
                                             Tuple2.of(l, r)
                             )
             );
@@ -118,7 +159,7 @@ public class Index<K extends Comparable<K>, L> {
             }
 
             return lefts.parallelStream().flatMap(l ->
-                 rights.stream().map(r ->
+                 rights.parallelStream().map(r ->
                      Tuple2.of(Optional.<L>of(l), Optional.<R>of(r))
                  )
             );
