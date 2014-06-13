@@ -23,29 +23,11 @@ public class IndexTest {
         joinAndCollect(largeDataLeft, largeDataRight);
     }
 
-    @PerfTest(invocations = 100, threads = 1)
-    @Test
-    public void
-    single_threaded_performance_test_much_data() {
-        singleThreadedPool.submit(() -> {
-            joinAndCollect(largeDataLeft, largeDataRight);
-        }).join();
-    }
-
     @PerfTest(invocations = 1000, threads = 1)
     @Test
     public void
     performance_test_little_data() {
         joinAndCollect(smallDataLeft, smallDataRight);
-    }
-
-    @PerfTest(invocations = 1000, threads = 1)
-    @Test
-    public void
-    single_threaded_performance_test_little_data() {
-        singleThreadedPool.submit(() -> {
-            joinAndCollect(smallDataLeft, smallDataRight);
-        }).join();
     }
 
     private static class Item {
@@ -67,12 +49,12 @@ public class IndexTest {
     @Before
     public void setup() {
         singleThreadedPool = new ForkJoinPool(1);
-        for (int i = 0; i < 100000; i++) {
+        for (int i = 0; i < 10000; i++) {
             largeDataLeft.add(new Item(100));
             largeDataRight.add(new Item(100));
         }
 
-        for (int i = 0; i < 10000; i++) {
+        for (int i = 0; i < 1000; i++) {
             smallDataLeft.add(new Item(10));
             smallDataRight.add(new Item(10));
         }

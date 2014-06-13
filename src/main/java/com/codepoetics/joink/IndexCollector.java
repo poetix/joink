@@ -14,17 +14,13 @@ final class IndexCollector {
                 TreeMap::new,
                 (map, element) -> {
                     K keyValue = key.apply(element);
-                    Set<S> elements = map.get(keyValue);
-                    if (elements == null) {
-                        elements = new HashSet<>();
-                        elements.add(element);
-                        map.put(keyValue, elements);
-                    } else {
-                        elements.add(element);
-                    }
+                    Set<S> elements = map.computeIfAbsent(keyValue, k -> new HashSet<S>());
+                    elements.add(element);
                 },
                 (m1, m2) -> {
-                    m1.putAll(m2);
+                    m2.entrySet().forEach(e ->
+                        m1.merge(e.getKey(), e.getValue(), (s1, s2) -> { s1.addAll(s2); return s1; })
+                    );
                     return m1;
                 }
         );
